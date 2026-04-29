@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Engineering/projects/Ray_Tracing/Ray_Tracing_Concurrent/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
