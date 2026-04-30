@@ -12,14 +12,19 @@
 #include "msc.h"
 #endif
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <cmath>
 #include <cfloat>
 #include "raylib.h"
+#include <random>
+#include <omp.h>
+#include <chrono>
 
-// drand48 replacement for MinGW
 inline double drand48() {
-    return (double)rand() / RAND_MAX;
+    thread_local std::mt19937 generator(std::random_device{}());
+    thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);
+    return distribution(generator);
 }
 #include "sphere.h"
 #include "moving_sphere.h"
@@ -32,9 +37,20 @@ inline double drand48() {
 #include "surface_texture.h"
 #include "aarect.h"
 #include "texture.h"
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "pdf.h"
+
+void write_csv(const std::string& filename, const std::vector<std::vector<double>>& data) {
+    std::ofstream file(filename);
+
+    for (const auto& row : data) {
+        for (size_t i = 0; i < row.size(); ++i) {
+            file << row[i];
+            if (i != row.size() - 1) file << ",";
+        }
+        file << "\n";
+    }
+}
 
 inline vec3 de_nan(const vec3& c) {
     vec3 temp = c;
@@ -101,7 +117,7 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
 int main() {
     const int nx = 800;
     const int ny = 600;
-    const int ns = 10; // Samples per pixel - lower for real-time, increase for quality
+    const int ns = 50; // Samples per pixel - lower for real-time, increase for quality
 
     InitWindow(nx, ny, "Ray Tracing - Cornell Box");
     SetTargetFPS(60);
@@ -121,7 +137,9 @@ int main() {
     a[1] = glass_sphere;
     hitable_list hlist(a,2);
 
-    // Pre-render the entire image
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    #pragma omp parallel for collapse(2) schedule(dynamic)
     for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
             vec3 col(0, 0, 0);
@@ -143,9 +161,20 @@ int main() {
         }
     }
 
-    // Update texture with rendered image
     UnloadTexture(texture);
     texture = LoadTextureFromImage(image);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    
+    std::cout << "Rendering time: " << duration.count() << " ms" << std::endl;
+    double duration_timestamp = duration.count();
+
+    std::vector<std::vector<double>> results_timestamp = {
+        {nx, ny, ns, duration_timestamp}
+    };
+
+    write_csv("raytracing_parallel.csv", results_timestamp);
 
     while (!WindowShouldClose()) {
         BeginDrawing();
