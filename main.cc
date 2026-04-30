@@ -12,10 +12,24 @@
 #include "msc.h"
 #endif
 #include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <cmath>
+#include <cfloat>
+#include "raylib.h"
+#include <random>
+#include <omp.h>
+#include <chrono>
+
+inline double drand48() {
+    thread_local std::mt19937 generator(std::random_device{}());
+    thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);
+    return distribution(generator);
+}
 #include "sphere.h"
 #include "moving_sphere.h"
 #include "hitable_list.h"
-#include "float.h"
+#include <cfloat>
 #include "camera.h"
 #include "material.h"
 #include "bvh.h"
@@ -23,9 +37,20 @@
 #include "surface_texture.h"
 #include "aarect.h"
 #include "texture.h"
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "pdf.h"
+
+void write_csv(const std::string& filename, const std::vector<std::vector<double>>& data) {
+    std::ofstream file(filename);
+
+    for (const auto& row : data) {
+        for (size_t i = 0; i < row.size(); ++i) {
+            file << row[i];
+            if (i != row.size() - 1) file << ",";
+        }
+        file << "\n";
+    }
+}
 
 inline vec3 de_nan(const vec3& c) {
     vec3 temp = c;
@@ -39,7 +64,7 @@ inline vec3 de_nan(const vec3& c) {
 
 vec3 color(const ray& r, hitable *world, hitable *light_shape, int depth) {
     hit_record hrec;
-    if (world->hit(r, 0.001, MAXFLOAT, hrec)) {
+    if (world->hit(r, 0.001, FLT_MAX, hrec)) {
         scatter_record srec;
         vec3 emitted = hrec.mat_ptr->emitted(r, hrec, hrec.u, hrec.v, hrec.p);
         if (depth < 50 && hrec.mat_ptr->scatter(r, hrec, srec)) {
@@ -90,10 +115,17 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
 }
 
 int main() {
-    int nx = 500;
-    int ny = 500;
-    int ns = 50;
-    std::cout << "P3\n" << nx << " " << ny << "\n255\n";
+    const int nx = 800;
+    const int ny = 600;
+    const int ns = 50; // Samples per pixel - lower for real-time, increase for quality
+
+    InitWindow(nx, ny, "Ray Tracing - Cornell Box");
+    SetTargetFPS(60);
+
+    // Create image buffer
+    Image image = GenImageColor(nx, ny, BLACK);
+    Texture2D texture = LoadTextureFromImage(image);
+
     hitable *world;
     camera *cam;
     float aspect = float(ny) / float(nx);
@@ -105,23 +137,58 @@ int main() {
     a[1] = glass_sphere;
     hitable_list hlist(a,2);
 
-    for (int j = ny-1; j >= 0; j--) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    #pragma omp parallel for collapse(2) schedule(dynamic)
+    for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
             vec3 col(0, 0, 0);
-            for (int s=0; s < ns; s++) {
-                float u = float(i+drand48())/ float(nx);
-                float v = float(j+drand48())/ float(ny);
+            for (int s = 0; s < ns; s++) {
+                float u = float(i + drand48()) / float(nx);
+                float v = float(j + drand48()) / float(ny);
                 ray r = cam->get_ray(u, v);
-                vec3 p = r.point_at_parameter(2.0);
                 col += de_nan(color(r, world, &hlist, 0));
             }
             col /= float(ns);
-            col = vec3( sqrt(col[0]), sqrt(col[1]), sqrt(col[2]) );
-            int ir = int(255.99*col[0]);
-            int ig = int(255.99*col[1]);
-            int ib = int(255.99*col[2]);
-            std::cout << ir << " " << ig << " " << ib << "\n";
+            col = vec3(sqrt(col[0]), sqrt(col[1]), sqrt(col[2]));
+            
+            int ir = int(255.99 * col[0]);
+            int ig = int(255.99 * col[1]);
+            int ib = int(255.99 * col[2]);
+            
+            // Flip vertically for image
+            ImageDrawPixel(&image, i, ny - 1 - j, (Color){(unsigned char)ir, (unsigned char)ig, (unsigned char)ib, 255});
         }
     }
+
+    UnloadTexture(texture);
+    texture = LoadTextureFromImage(image);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    
+    std::cout << "Rendering time: " << duration.count() << " ms" << std::endl;
+    double duration_timestamp = duration.count();
+
+    std::vector<std::vector<double>> results_timestamp = {
+        {nx, ny, ns, duration_timestamp}
+    };
+
+    write_csv("raytracing_parallel.csv", results_timestamp);
+
+    while (!WindowShouldClose()) {
+        BeginDrawing();
+        ClearBackground(BLACK);
+        DrawTexture(texture, 0, 0, WHITE);
+        DrawText("Ray Tracing - Cornell Box", 10, 10, 20, WHITE);
+        DrawText("Press ESC to exit", 10, 40, 20, WHITE);
+        EndDrawing();
+    }
+
+    UnloadTexture(texture);
+    UnloadImage(image);
+    CloseWindow();
+
+    return 0;
 }
 
