@@ -14,24 +14,9 @@
    - Сборка из исходников: git clone https://github.com/raysan5/raylib.git
                            cd raylib/src && make PLATFORM=PLATFORM_DESKTOP
 
-3. Все .h файлы из данного проекта должны находиться в одной папке с main.cc:
-   - vec3.h, ray.h, aabb.h, hitable.h, sphere.h, hitable_list.h,
-   - camera.h, material.h, box.h, aarect.h, texture.h, pdf.h,
-   - onb.h, perlin.h, cylinder.h
-
-4. Команда для компиляции (Linux/macOS):
-   g++ -std=c++11 -O3 -fopenmp -o raytracer main.cc -lraylib -lm -lpthread -ldl
-
-   Для macOS может потребоваться фреймворк:
-   g++ -std=c++11 -O3 -fopenmp -o raytracer main.cc -framework raylib -lm -lpthread
-
-   Для Windows с MinGW (в терминале MSYS2):
-   g++ -std=c++11 -O3 -fopenmp -o raytracer.exe main.cc -lraylib -lm -lwinmm -lgdi32 -lopengl32 -lws2_32
-
-   Если OpenMP не поддерживается вашим компилятором, удалите флаг -fopenmp и
-   #pragma omp parallel for в коде (программа станет однопоточной).
-
-5. Запуск:
+3. Запуск:
+   cmake ..
+   cmake --build .
    ./raytracer   (или ./raytracer.exe на Windows)
 
    Откроется окно, отображающее отрендеренное изображение.
