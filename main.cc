@@ -1,15 +1,4 @@
-//==================================================================================================
-// Written in 2016 by Peter Shirley <ptrshrl@gmail.com>
-//
-// To the extent possible under law, the author(s) have dedicated all copyright and related and
-// neighboring rights to this software to the public domain worldwide. This software is distributed
-// without any warranty.
-//
-// You should have received a copy (see file COPYING.txt) of the CC0 Public Domain Dedication along
-// with this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
-//==================================================================================================
 #ifdef _MSC_VER
-#include "msc.h"
 #endif
 #include <iostream>
 #include <fstream>
@@ -27,17 +16,13 @@ inline double drand48() {
     return distribution(generator);
 }
 #include "sphere.h"
-#include "moving_sphere.h"
 #include "hitable_list.h"
 #include <cfloat>
 #include "camera.h"
 #include "material.h"
-#include "bvh.h"
 #include "box.h"
-#include "surface_texture.h"
 #include "aarect.h"
 #include "texture.h"
-#include "stb_image.h"
 #include "pdf.h"
 
 void write_csv(const std::string& filename, const std::vector<std::vector<double>>& data) {
@@ -116,8 +101,8 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
 
 int main() {
     const int nx = 800;
-    const int ny = 600;
-    const int ns = 50; // Samples per pixel - lower for real-time, increase for quality
+    const int ny = 900;
+    const int ns = 20; // Samples per pixel - lower for real-time, increase for quality
 
     InitWindow(nx, ny, "Ray Tracing - Cornell Box");
     SetTargetFPS(60);
