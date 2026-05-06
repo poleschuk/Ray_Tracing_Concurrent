@@ -1,3 +1,3 @@
-/home/poleshchuk/Software/Engineering/projects/Ray_Tracing_Concurrent/build/CMakeFiles/raytracer.dir
-/home/poleshchuk/Software/Engineering/projects/Ray_Tracing_Concurrent/build/CMakeFiles/edit_cache.dir
-/home/poleshchuk/Software/Engineering/projects/Ray_Tracing_Concurrent/build/CMakeFiles/rebuild_cache.dir
+/home/poleshchuk/Software/Engineering/projects/Ray_Tracing/Ray_Tracing_Concurrent/build/CMakeFiles/raytracer.dir
+/home/poleshchuk/Software/Engineering/projects/Ray_Tracing/Ray_Tracing_Concurrent/build/CMakeFiles/edit_cache.dir
+/home/poleshchuk/Software/Engineering/projects/Ray_Tracing/Ray_Tracing_Concurrent/build/CMakeFiles/rebuild_cache.dir

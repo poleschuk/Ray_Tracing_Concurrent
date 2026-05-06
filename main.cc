@@ -79,9 +79,11 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
     material *white = new lambertian( new constant_texture(vec3(0.73, 0.73, 0.73)) );
     material *green = new lambertian( new constant_texture(vec3(0.12, 0.45, 0.15)) );
     material *light = new diffuse_light( new constant_texture(vec3(15, 15, 15)) );
+    material *back_light_mat = new diffuse_light(new constant_texture(vec3(20, 20, 20)));
     list[i++] = new flip_normals(new yz_rect(0, 555, 0, 555, 555, green));
     list[i++] = new yz_rect(0, 555, 0, 555, 0, red);
-    list[i++] = new flip_normals(new xz_rect(213, 343, 227, 332, 554, light));
+    list[i++] = new flip_normals(new xz_rect(214, 343, 227, 262, 554, light));
+    list[i++] = new xy_rect(0, 555, 0, 555, -800, light);
     list[i++] = new flip_normals(new xz_rect(0, 555, 0, 555, 555, white));
     list[i++] = new xz_rect(0, 555, 0, 555, 0, white);
     list[i++] = new flip_normals(new xy_rect(0, 555, 0, 555, 555, white));
@@ -102,7 +104,7 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
 int main() {
     const int nx = 800;
     const int ny = 900;
-    const int ns = 20; // Samples per pixel - lower for real-time, increase for quality
+    const int ns = 50; // Samples per pixel - lower for real-time, increase for quality
 
     InitWindow(nx, ny, "Ray Tracing - Cornell Box");
     SetTargetFPS(60);
@@ -113,13 +115,18 @@ int main() {
 
     hitable *world;
     camera *cam;
-    float aspect = float(ny) / float(nx);
+    float aspect = float(nx) / float(ny);
     cornell_box(&world, &cam, aspect);
-    hitable *light_shape = new xz_rect(213, 343, 227, 332, 554, 0);
+    
+    hitable *light_shape = new xz_rect(213, 343, 227, 332, 0, 0);
+
+    hitable *light_shape_second = new xy_rect(0, 555, 0, 555, -800, 0);
     hitable *glass_sphere = new sphere(vec3(190, 90, 190), 90, 0);
     hitable *a[2];
+
     a[0] = light_shape;
-    a[1] = glass_sphere;
+    a[1] = light_shape_second;
+//    a[1] = glass_sphere;
     hitable_list hlist(a,2);
 
     auto start_time = std::chrono::high_resolution_clock::now();
