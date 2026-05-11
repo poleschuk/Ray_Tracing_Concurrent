@@ -24,6 +24,10 @@ inline double drand48() {
 #include "aarect.h"
 #include "texture.h"
 #include "pdf.h"
+#include "cylinder.h"
+
+vec3 SUN_POSITION = vec3(1000, 500, 300);
+float SUN_R = 300;
 
 void write_csv(const std::string& filename, const std::vector<std::vector<double>>& data) {
     std::ofstream file(filename);
@@ -43,6 +47,54 @@ inline vec3 de_nan(const vec3& c) {
     if (!(temp[1] == temp[1])) temp[1] = 0;
     if (!(temp[2] == temp[2])) temp[2] = 0;
     return temp;
+}
+
+/*
+vec3 sky_with_sun(const ray& r, const vec3& light_center, const vec3& light_color) {
+    vec3 dir = unit_vector(r.direction());
+    float t = 0.5 * (dir.y() + 1.0);
+    vec3 sky = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+
+    // "Солнце" – яркое пятно в направлении на центр источника
+    float cos_angle = dot(dir, unit_vector(light_center));
+    float sun = pow(std::max(cos_angle, 0.0f), 500.0f);  // большое число – резкий диск
+    sky += sun * light_color;  // добавляем излучение источника
+    return sky;
+}
+*/
+
+vec3 sky_with_sun(const ray& r,
+                  const vec3& light_center,
+                  float light_radius,
+                  const vec3& light_color)
+{
+    vec3 dir = unit_vector(r.direction());
+    float t = 0.5f * (dir.y() + 1.0f);
+    vec3 sky = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f)
+             + t * vec3(0.5f, 0.7f, 1.0f);
+
+    vec3 to_light = light_center - r.origin();
+    float dist = to_light.length();
+    if (dot(dir, to_light) <= 0) return sky;
+
+    float sin_theta = light_radius / dist;
+    if (sin_theta > 1.0f) {
+        return light_color;
+    }
+
+    float cos_alpha = dot(dir, to_light / dist);
+    float cos_theta = sqrt(1.0f - sin_theta * sin_theta);
+
+    if (cos_alpha >= cos_theta) {
+        return light_color;
+    } else {
+        float edge = 0.005f;
+        if (cos_alpha >= cos_theta - edge) {
+            float mix = (cos_alpha - (cos_theta - edge)) / edge;
+            return mix * light_color + (1.0f - mix) * sky;
+        }
+        return sky;
+    }
 }
 
 
@@ -69,8 +121,16 @@ vec3 color(const ray& r, hitable *world, hitable *light_shape, int depth) {
             return emitted;
     }
     else
-        return vec3(0,0,0);
+        return vec3(0, 0, 0);
 }
+
+vec3 sky_color(const ray& r) {
+    vec3 dir = unit_vector(r.direction());
+    float t = 0.5 * (dir.y() + 1.0);
+    return (1.0 - t) * vec3(1, 1, 1) + t * vec3(0.5, 0.7, 1);
+}
+
+vec3 constant_sky_color = vec3(0.5, 0.7, 1);
 
 void cornell_box(hitable **scene, camera **cam, float aspect) {
     int i = 0;
@@ -85,8 +145,7 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
     list[i++] = new flip_normals(new xz_rect(0, 555, 0, 555, 555, white));
     list[i++] = new xz_rect(0, 555, 0, 555, 0, white);
     list[i++] = new flip_normals(new xy_rect(0, 555, 0, 555, 555, white));
-    material *glass = new dielectric(1.5);
-    list[i++] = new sphere(vec3(190, 90, 190),90 , glass);
+    list[i++] = new sphere(vec3(190, 90, 190),90 , white);
     list[i++] = new translate(new rotate_y(
                     new box(vec3(0, 0, 0), vec3(165, 330, 165), white),  15), vec3(265,0,295));
     *scene = new hitable_list(list,i);
@@ -99,28 +158,54 @@ void cornell_box(hitable **scene, camera **cam, float aspect) {
                       vfov, aspect, aperture, dist_to_focus, 0.0, 1.0);
 }
 
+
+void open_scene(hitable **scene, camera **cam, float aspect) {
+    int i = 0;
+    hitable **list = new hitable*[5];
+    material *green = new lambertian(new constant_texture(vec3(0.12, 0.45, 0.15)));
+    material *red = new lambertian(new constant_texture(vec3(0.65, 0.05, 0.05)));
+    material *white = new lambertian(new constant_texture(vec3(0.73, 0.73, 0.73)));
+    material *light = new diffuse_light(new constant_texture(vec3(5, 5, 5)));
+    material *blue_sky = new lambertian(new constant_texture(constant_sky_color));
+    list[i++] = new xz_rect(-1000, 1000, -1000, 1000, 0, green);
+    list[i++] = new flip_normals(new xy_rect(-1000, 1000, -1000, 1000, -1000, blue_sky));
+    list[i++] = new cylinder(vec3(-55, 0, 20), 80, 220, white);
+    list[i++] = new sphere(SUN_POSITION, SUN_R, light);
+    list[i++] = new sphere(vec3(130, 80.1, -300), 80, red);
+
+    *scene = new hitable_list(list,i);
+    vec3 lookfrom(0, 400, 800);
+    vec3 lookat(0,0,0);
+    float dist_to_focus = 10.0;
+    float aperture = 0.0;
+    float vfov = 40.0;
+    *cam = new camera(lookfrom, lookat, vec3(0,1,0),
+                      vfov, aspect, aperture, dist_to_focus, 0.0, 1.0);
+}
+
 int main() {
     const int nx = 800;
     const int ny = 900;
-    const int ns = 20; // Samples per pixel - lower for real-time, increase for quality
+    const int ns = 100;
 
     InitWindow(nx, ny, "Ray Tracing - Cornell Box");
     SetTargetFPS(60);
 
-    // Create image buffer
-    Image image = GenImageColor(nx, ny, BLACK);
+    Image image = GenImageColor(nx, ny, DARKBLUE);
     Texture2D texture = LoadTextureFromImage(image);
 
     hitable *world;
     camera *cam;
-    float aspect = float(ny) / float(nx);
+    float aspect = float(nx) / float(ny);
     cornell_box(&world, &cam, aspect);
-    hitable *light_shape = new xz_rect(213, 343, 227, 332, 554, 0);
-    hitable *glass_sphere = new sphere(vec3(190, 90, 190), 90, 0);
-    hitable *a[2];
-    a[0] = light_shape;
-    a[1] = glass_sphere;
-    hitable_list hlist(a,2);
+//    open_scene(&world, &cam, aspect);
+//    hitable *light_sun = new sphere(SUN_POSITION, SUN_R, 0);
+    hitable *light_box = new xz_rect(213, 343, 227, 332, 554, 0);
+
+
+    hitable *a[1];
+    a[0] = light_box;
+    hitable_list hlist(a,1);
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -141,7 +226,6 @@ int main() {
             int ig = int(255.99 * col[1]);
             int ib = int(255.99 * col[2]);
             
-            // Flip vertically for image
             ImageDrawPixel(&image, i, ny - 1 - j, (Color){(unsigned char)ir, (unsigned char)ig, (unsigned char)ib, 255});
         }
     }
