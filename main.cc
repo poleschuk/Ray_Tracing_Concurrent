@@ -69,35 +69,26 @@ vec3 sky_with_sun(const ray& r,
                   const vec3& light_color)
 {
     vec3 dir = unit_vector(r.direction());
-    float t = 0.5f * (dir.y() + 1.0f);           // для градиента неба
+    float t = 0.5f * (dir.y() + 1.0f);
     vec3 sky = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f)
              + t * vec3(0.5f, 0.7f, 1.0f);
 
-    // Вектор от начала луча (камеры) до центра источника
     vec3 to_light = light_center - r.origin();
     float dist = to_light.length();
-    // Если источник находится "за спиной" или сбоку, он не должен быть виден
-    // (можно просто не учитывать, если направление сильно расходится)
-    if (dot(dir, to_light) <= 0) return sky;   // источник позади
+    if (dot(dir, to_light) <= 0) return sky;
 
-    // Синус углового радиуса (половина угла конуса)
     float sin_theta = light_radius / dist;
     if (sin_theta > 1.0f) {
-        // Источник настолько близко, что охватывает всё небо -> возвращаем его яркость
         return light_color;
     }
 
-    // Косинус угла между направлением луча и направлением на центр источника
     float cos_alpha = dot(dir, to_light / dist);
-    // Косинус половины угла конуса видимости
     float cos_theta = sqrt(1.0f - sin_theta * sin_theta);
 
     if (cos_alpha >= cos_theta) {
-        // Луч попадает в диск источника – возвращаем его цвет
         return light_color;
     } else {
-        // Для плавного перехода (корона) можно добавить небольшое гало:
-        float edge = 0.005f;  // ширина переходной зоны
+        float edge = 0.005f;
         if (cos_alpha >= cos_theta - edge) {
             float mix = (cos_alpha - (cos_theta - edge)) / edge;
             return mix * light_color + (1.0f - mix) * sky;
